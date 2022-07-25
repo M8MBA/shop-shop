@@ -1,0 +1,151 @@
+State Notes
+
+You’ll start by expanding your knowledge of state management by making a complex application more efficient. To do this, you’ll follow a popular state management paradigm called Redux. Redux isn’t directly tied to React, but it is often used with large-scale React applications to avoid prop drilling, which requires developers to go through layers of components to get data to other parts of the React component tree. In addition, you’ll learn how to manage online payments using a popular service called Stripe. Finally, you’ll add to your experience with GraphQL and PWAs.
+
+Redux - A javascript open-source library
+
+    What You Will Learn
+
+      By completing this module, you'll learn how to do the following:
+
+        Explain and identify use cases for global state management.
+
+        Use the Context API and React Hooks to manage Redux-like global state in a React application.
+
+        Implement the Stripe payment platform in a MERN application.
+
+Global State:
+The main purpose of the global state is to share a state among multiple components.
+
+There are three ways this communication can happen:
+
+    With a child component
+    With a parent component
+    With a sibling component
+
+https://www.educative.io/answers/what-is-global-state-with-react
+
+
+** Important **
+Don't forget to create a .gitignore file at the root of the application to ignore node_modules and anything else you don't want to push to GitHub. Otherwise, you'll end up pushing hundreds of thousands of dependency files!
+
+Now let's navigate to the root of shop-shop from the command line and install our application's dependencies. Remember, we don't need to install all of them manually, because the root level's package.json has the scripts ready to do all of them! Simply run the following command from the root of the project:
+
+  npm install
+
+This will take a bit of time, as it needs to first install the dependencies at the root, then the dependencies for the server, and finally the ones for the client.
+
+After the dependencies are installed, let's seed our MongoDB database collections by using the following command:
+
+  npm run seed
+
+Command Line should look like the following after it's all done:
+
+    Cade@Cades-MacBook-Pro shop-shop % npm run seed
+
+    > mern-shopping@1.0.0 seed
+    > cd server && npm run seed
+
+
+    > mern-server@1.0.0 seed
+    > node config/seeds.js
+
+    categories seeded
+    products seeded
+    users seeded
+
+Now let's start the app! As we mentioned earlier, it already works, but we should investigate what we're refactoring before we jump right into it. Run npm run develop from the command line and let all of the processes start up.
+
+Once it's up and running, let's take a peek into the client directory to study how state is updated and managed across a few components. Namely, let's take a look at how the Home.js file in the pages directory manages state that's updated by the CategoryMenu component and used by the ProductList component.
+
+The Home page component manages the state currentCategory, which is passed to the ProductList component as a prop and instructs which category's products should be retrieved using Apollo. To set that currentCategory value, however, the setCategory callback function is passed to the CategoryMenu component as a prop to be executed on a new category pick.
+
+This is a normal setup using React, and there's really nothing wrong with it. So why are we looking to change it? The main reason we'll refactor it to use a Redux-like state management system is simply just to gain experience in how it works. This is a situation where we do something for us, the developer, and not necessarily for the user. Another reason is that we'll soon add more stateful data that needs to be accessible across our application, and having this centralized global state in place will make that a lot easier for us to scale our application out.
+
+Lastly, a lot of our state across components relies on component-level Apollo query results. Those results affect the overall functionality that determines what we see in other components of our app, meaning other components need to constantly be made aware of those results, which is cumbersome. So by taking that returned data from the query result and storing it in a global state, we can effectively remove a lot of confusing data movement between components to keep them in sync.
+
+------------------------------
+
+Read on for a quick backstory of what Redux is and why the need for global state management became such a big deal.
+
+When the world of modern web applications began, long before React was even a thought, managing client-side data became a chore. Not only did developers have to manage what data from the server was being displayed on the page, but they also had to manage the data that kept track of the state that specific UI components were in. Other issues arose with synchronicity. For example, if two users interacted with someone at the same time, how does the application know which one occurred first?
+
+A few libraries aimed to be the ultimate solution to this problem, but one stuck out: Redux. Redux allows developers to centralize all of the data needed to make an application run properly and set it up in a global object that makes the data easy to use by the UI but also predictable in terms of how it's updated. Redux is built on the following three core principles, which aren't totally unique to Redux, as we'll soon see:
+
+    Single source of truth: By having all of the application's data stored in one location that isn't tied to any single piece of the UI, we can easily manipulate our app's UI without having to affect any of it.
+
+    State is read-only: This doesn't mean state can't be updated, but rather that it cannot be directly updated. Instead, it should be overwritten with a new iteration of that state. This makes it so that the application's state is updated in a predictable fashion and the UI won't ever get out of sync with its data.
+
+    State is changed through pure functions: This means that to make an update to state, we don't actually manipulate it. Instead, we overwrite it with a new version of it. This lowers the chance of any data being accidentally affected by an action. We do this by creating what's known as a reducer, which runs as a result of an action.
+
+-----------------------------
+
+Nerd Note: The name for a global state object is often referred to as a store.
+
+What's important to note here is that Redux does not have to be used with React. Developers put it in place to decouple their state management from the UI, which allows them to change UI libraries if they want or need to. In our case, we're not going to use Redux directly, as that may be a bit too much for the size of our application and could veer into the realm of overengineering. Instead, we'll use tools that React already has built-in!
+
+
+Set Up Actions
+
+a global store is built on two important pieces when it comes to updating state:
+
+    Actions: These define the types of events that can be emitted to update state. State can only be updated if it's a predefined action.
+
+    Reducers: The actual functionality that carries out the emitted action to update state.
+
+Because of this relationship, we'll need to create our actions before we create our reducers
+
+Actions and reducers have a very similar relationship to how we use typeDefs and resolvers with GraphQL. We need to define what's to be interacted with, and then write the functionality that carries out that interaction.
+
+In the utils folder of our client/src directory, create two files:
+
+    actions.js
+
+    reducers.js
+
+We'll get to writing our reducers in a bit, but let's define some actions first. In the actions.js file, let's create the following actions by adding the following code, then we'll explain what they do:
+
+export const UPDATE_PRODUCTS = "UPDATE_PRODUCTS";
+export const UPDATE_CATEGORIES = "UPDATE_CATEGORIES";
+export const UPDATE_CURRENT_CATEGORY = "UPDATE_CURRENT_CATEGORY";
+
+With these three actions, we're defining how three parts of our state will be maintained and updated:
+
+    UPDATE_PRODUCTS is used by the ProductList component. Right now, we're getting all of our product data from the server, and Apollo caches the results. This is great for performance, but it also means we have to go through Apollo every time we want to update that list. The end goal here is to store the data retrieved for products by Apollo in this global state. This way, we can add offline capabilities later and persist our product data!
+
+    UPDATE_CATEGORIES works a lot like UPDATE_PRODUCTS in that we want to take the list of categories retrieved from the server by Apollo and store it in this global state. Again, this will allow us to easily add offline capabilities at a future point in this project.
+
+    UPDATE_CURRENT_CATEGORY is sort of the connecting piece of data for the previous two actions we created, in that we want to be able to select a category from the state created by the UPDATE_CATEGORIES action and display products for that category from the list we create from the UPDATE_PRODUCTS action.
+
+Like we did with our GraphQL query and mutation names previously, these are all uppercased. There's no functional purpose for it, but it allows our code to be a bit more readable, as we can now easily spot where our GraphQL or action code lives in our files.
+
+With our actions defined, we now have three explicit definitions of how our application's state will be updated. Let's now move on to create the reducers that will carry out these actions. To do so, however, we'll revisit some test-driven development (TDD) knowledge to ensure that it will update state correctly. This way, we won't actually have to update our UI components until we know it'll work!
+
+What is a REDUCER?
+
+A reducer is a function that updates state by returning a new state object and never alters the original state object. Now, that doesn't mean the data inside the state object isn't altered. Of course, it is—why else would we need to update state? The key takeaway here is that state is intended to be immutable, meaning it never should be directly altered in any way. The reason for this is that it goes behind the state management system's back and it isn't informed that something has changed.
+
+
+The following code shows an example of what *NOT* to do with state, using a regular JavaScript object:
+
+// original state
+const state = {
+  name: 'Lernantino',
+  email: 'lernantino@gmail.com' 
+}
+
+// update (or mutate) state directly
+state.email = 'lernantino99@gmail.com';
+
+This is fine in normal JavaScript. As a matter of fact, we do this all the time! But this isn't a great idea when we need to keep track of an application's state in the proper way, as we simply reached in and altered something without alerting the rest of the application that it's been altered. What if that email address were displayed on the page—how would it know that it needs to be updated?
+
+Instead, we want to do something like what's shown in the following code to update state:
+
+// original state
+const state = {
+  name: 'Lernantino',
+  email: 'lernantino@gmail.com' 
+};
+
+// create a new version of state by making a copy of the original state's data and updating only the part that has changed
+const updatedState = {...state, email: 'lernantino99@gmail.com'};
